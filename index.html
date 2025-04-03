@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Three.js Subplot Demo</title>
+    <style>
+      html, body {
+        margin: 0; 
+        padding: 0;
+        height: 100%;
+        overflow: hidden;
+      }
+      #container {
+        width: 100vw;
+        height: 100vh;
+        position: relative;
+      }
+      #clipSlider {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        width: 200px;
+        z-index: 10;
+      }
+      .subplot-label {
+        position: absolute;
+        z-index: 10;
+        background: rgba(255, 255, 255, 0.8);
+        padding: 2px 5px;
+        font-family: Arial, sans-serif;
+        font-size: 16px;
+        border: 1px solid black;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="container">
+      <input type="range" id="clipSlider" min="-5" max="5" step="0.1" value="0">
+      <div id="label0" class="subplot-label">Original</div>
+      <div id="label1" class="subplot-label">PyMeshFix</div>
+      <div id="label2" class="subplot-label">PyMesh</div>
+      <div id="label3" class="subplot-label">MeshLib</div>
+      <div id="label4" class="subplot-label">SurfaceNets</div>
+      <div id="label5" class="subplot-label">Local Remesh</div>
+    </div>
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>
