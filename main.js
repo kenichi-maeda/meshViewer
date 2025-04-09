@@ -2,9 +2,28 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 
-// 1) Create 6 Scenes
+const testFolders = ['meshes/test1/', 'meshes/test2/', 'meshes/test3/', 'meshes/test4/'];  // Now 4 test cases!
+const meshInfos = [
+  { file: 'original.obj',    label: 'Original' },
+  { file: 'pymeshfix.obj',   label: 'PyMeshFix' },
+  { file: 'pymesh.obj',      label: 'PyMesh' },
+  { file: 'meshlib.obj',     label: 'MeshLib' },
+  { file: 'surfacenets.obj', label: 'SurfaceNets' },
+  { file: 'localremesh.obj', label: 'Local Remesh' }
+];
+
+const rows = testFolders.length; 
+const columns = meshInfos.length;
+const totalMeshes = rows * columns;
+
+const subH = 300; 
+let canvasHeight = subH * rows;
+
+// --- Create Scenes and Cameras ---
 const scenes = [];
-for (let i = 0; i < 6; i++) {
+const cameras = [];
+
+for (let i = 0; i < totalMeshes; i++) {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0xffffff);
   scene.add(new THREE.AmbientLight(0xffffff, 0.6));
@@ -12,33 +31,30 @@ for (let i = 0; i < 6; i++) {
   dirLight.position.set(5, 10, 5);
   scene.add(dirLight);
   scenes.push(scene);
-}
 
-
-// 2) Create 6 Cameras
-const cameras = [];
-for (let i = 0; i < 6; i++) {
+  // Create a camera for each subplot.
   const cam = new THREE.PerspectiveCamera(45, 1.0, 0.1, 1000);
   cam.position.set(0, 3, 10);
   cameras.push(cam);
 }
-const masterCamera = cameras[0];
+const masterCamera = cameras[0]; 
 
-
-// 3) Set up one Renderer and append its canvas to the container.
+// --- Renderer & Container ---
 const container = document.getElementById('container');
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setSize(window.innerWidth, window.innerHeight);
+container.style.height = canvasHeight + 'px';
+
+const renderer = new THREE.WebGLRenderer({
+  powerPreference: "high-performance",
+  antialias: true,
+});
+renderer.setSize(window.innerWidth, canvasHeight);
 renderer.setPixelRatio(window.devicePixelRatio);
 container.appendChild(renderer.domElement);
 
-
-// 4) OrbitControls on the master camera
 const controls = new OrbitControls(masterCamera, renderer.domElement);
 controls.enableDamping = true;
 
-
-// 5) Shared Clipping Plane (affects all scenes).
+// --- Clipping Plane ---
 const clipPlane = new THREE.Plane(new THREE.Vector3(-1, 0, 0), 0);
 renderer.clippingPlanes = [clipPlane];
 renderer.localClippingEnabled = true;
@@ -49,88 +65,96 @@ clipSlider.addEventListener('input', (event) => {
   renderAll();
 });
 
-// 6) Load 6 OBJ meshes (one per scene) with edge highlighting.
-const meshInfos = [
-  { url: 'meshes/test1/original.obj',    label: 'Original'    },
-  { url: 'meshes/test1/pymeshfix.obj',   label: 'PyMeshFix'   },
-  { url: 'meshes/test1/pymesh.obj',      label: 'PyMesh'      },
-  { url: 'meshes/test1/meshlib.obj',     label: 'MeshLib'     },
-  { url: 'meshes/test1/surfacenets.obj', label: 'SurfaceNets' },
-  { url: 'meshes/test1/localremesh.obj', label: 'Local Remesh'},
-];
-
+// --- Load Meshes ---
 const loader = new OBJLoader();
-meshInfos.forEach((info, i) => {
-  loader.load(
-    info.url,
-    (object) => {
-      object.traverse(child => {
-        if (child.isMesh) {
-          const edges = new THREE.EdgesGeometry(child.geometry);
-          const edgeMaterial = new THREE.LineBasicMaterial({ color: 0x000000, linewidth: 1 });
-          const edgeLines = new THREE.LineSegments(edges, edgeMaterial);
-          child.add(edgeLines);
-        }
-      });
-      object.position.set(0, 0, 0);
-      scenes[i].add(object);
-      renderAll();
-    },
-    (err) => console.error('Error loading ' + info.url, err)
-  );
+
+testFolders.forEach((folder, rowIndex) => {
+  meshInfos.forEach((meshInfo, colIndex) => {
+    const overallIndex = rowIndex * columns + colIndex;
+    const url = folder + meshInfo.file;
+    loader.load(
+      url,
+      (object) => {
+        object.traverse(child => {
+          if (child.isMesh) {
+            child.geometry.computeVertexNormals();
+            child.material = new THREE.MeshPhongMaterial({
+              color: 0xffffff,
+              polygonOffset: true,
+              polygonOffsetFactor: 1,
+              polygonOffsetUnits: 1,
+              side: THREE.DoubleSide
+            });
+            const wireframeGeo = new THREE.WireframeGeometry(child.geometry);
+            const wireframeMat = new THREE.LineBasicMaterial({ color: 0x000000 });
+            const wireframe = new THREE.LineSegments(wireframeGeo, wireframeMat);
+            child.add(wireframe);
+          }
+        });
+        object.position.set(0, 0, 0);
+        scenes[overallIndex].add(object);
+        renderAll();
+      },
+      undefined,
+      (err) => console.error('Error loading ' + url, err)
+    );
+  });
 });
 
-
-// 7) Create HTML labels
+// --- Create HTML Labels ---
 const labels = [];
-for (let i = 0; i < 6; i++) {
-  labels.push(document.getElementById(`label${i}`));
+for (let i = 0; i < totalMeshes; i++) {
+  const labelDiv = document.createElement('div');
+  labelDiv.className = 'subplot-label';
+  const col = i % columns;
+  labelDiv.innerText = meshInfos[col].label;
+  container.appendChild(labelDiv);
+  labels.push(labelDiv);
 }
 
 window.addEventListener('resize', onWindowResize);
 function onWindowResize() {
-  renderer.setSize(window.innerWidth, window.innerHeight);
+  const newWidth = window.innerWidth;
+  canvasHeight = subH * rows;
+  container.style.height = canvasHeight + 'px';
+  renderer.setSize(newWidth, canvasHeight);
   renderAll();
 }
 
-
-// 9) Animation Loop & Synchronized Cameras
 function animate() {
   requestAnimationFrame(animate);
   controls.update();
-  for (let i = 1; i < 6; i++) {
-    cameras[i].quaternion.copy(masterCamera.quaternion);
+  
+  for (let i = 1; i < totalMeshes; i++) {
     cameras[i].position.copy(masterCamera.position);
+    cameras[i].quaternion.copy(masterCamera.quaternion);
     cameras[i].updateMatrixWorld();
   }
+  
   renderAll();
 }
 animate();
 
-// 10) Render All Subplots (2 rows × 3 columns)
+// --- Render All Subplots ---
 function renderAll() {
-    renderer.setScissorTest(true);
-    const width = window.innerWidth;
-    const height = window.innerHeight;
-    const subW = width / 3;
-    const subH = height / 2;
-    
-    for (let i = 0; i < 6; i++) {
-      const row = Math.floor(i / 3); 
-      const col = i % 3;
-      
-      const viewportY = height - (row + 1) * subH;
-      const viewportX = col * subW;
-      
-      cameras[i].aspect = subW / subH;
-      cameras[i].updateProjectionMatrix();
-      
-      renderer.setViewport(viewportX, viewportY, subW, subH);
-      renderer.setScissor(viewportX, viewportY, subW, subH);
-      renderer.render(scenes[i], cameras[i]);
+  renderer.setScissorTest(true);
+  const width = window.innerWidth;
+  const subW = width / columns;
 
-      const labelTop = height - viewportY - subH + 5;
-      labels[i].style.left = (viewportX + 5) + "px";
-      labels[i].style.top = labelTop + "px";
-    }
+  for (let i = 0; i < totalMeshes; i++) {
+    const row = Math.floor(i / columns);
+    const col = i % columns;
+    const viewportX = col * subW;
+    const viewportY = canvasHeight - (row + 1) * subH;
+    
+    cameras[i].aspect = subW / subH;
+    cameras[i].updateProjectionMatrix();
+
+    renderer.setViewport(viewportX, viewportY, subW, subH);
+    renderer.setScissor(viewportX, viewportY, subW, subH);
+    renderer.render(scenes[i], cameras[i]);
+    
+    labels[i].style.left = (viewportX + 5) + 'px';
+    labels[i].style.top  = (viewportY + 5) + 'px';
   }
+}
