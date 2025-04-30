@@ -125,6 +125,15 @@ for (let rowIndex = 0; rowIndex < rows; rowIndex++) {
 
   headingDiv.appendChild(titleSpan);
   headingDiv.appendChild(slider);
+
+  if (rowIndex === 3) {
+    const noteSpan = document.createElement('span');
+    noteSpan.textContent = 'Only in this test case, voxel size = median edge length / 2';
+    noteSpan.style.fontSize = '14px';
+    noteSpan.style.color = '#444';
+    headingDiv.appendChild(noteSpan);
+  }
+  
   container.appendChild(headingDiv);
 }
 
